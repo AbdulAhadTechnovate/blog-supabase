@@ -128,7 +128,28 @@ function getPatterns() {
 
         const origin = req.nextUrl.origin;
         const next = req.nextUrl.pathname;
+        const pathname = req.nextUrl.pathname;
 
+        // Public routes that don't require authentication
+        const publicRoutes = [
+          '/home',
+          '/home/blog',
+        ];
+        
+        // Check if this is a public blog route (blog list or blog detail)
+        const isPublicBlogRoute = 
+          pathname === '/home' || 
+          (pathname.startsWith('/home/blog/') && !pathname.startsWith('/home/blog/create'));
+
+        // Set pathname header for layout to use
+        res.headers.set('x-pathname', pathname);
+
+        // If it's a public route, allow access without authentication
+        if (isPublicBlogRoute) {
+          return res;
+        }
+
+        // For protected routes, check authentication
         // If user is not logged in, redirect to sign in page.
         if (!data?.claims) {
           const signIn = pathsConfig.auth.signIn;

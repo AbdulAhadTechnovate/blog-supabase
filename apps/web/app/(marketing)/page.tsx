@@ -1,144 +1,94 @@
-import Image from 'next/image';
-import Link from 'next/link';
+import { Suspense } from 'react';
 
-import { ArrowRightIcon, LayoutDashboard } from 'lucide-react';
+import { SitePageHeader } from '~/(marketing)/_components/site-page-header';
+import { BlogPostsList } from '~/(marketing)/_components/blog-posts-list';
 
 import {
-  CtaButton,
-  FeatureCard,
-  FeatureGrid,
-  FeatureShowcase,
-  FeatureShowcaseIconContainer,
-  Hero,
-  Pill,
-} from '@kit/ui/marketing';
-import { Trans } from '@kit/ui/trans';
-
+  getBlogPostsServer,
+  enrichBlogPostsWithAuthors,
+} from '~/lib/graphql/server';
 import { withI18n } from '~/lib/i18n/with-i18n';
 
-function Home() {
-  return (
-    <div className={'mt-4 flex flex-col space-y-24 py-14'}>
-      <div className={'container mx-auto'}>
-        <Hero
-          pill={
-            <Pill label={'New'}>
-              <span>The leading SaaS Starter Kit for ambitious developers</span>
-            </Pill>
-          }
-          title={
-            <>
-              <span>The ultimate SaaS Starter</span>
-              <span>for your next project</span>
-            </>
-          }
-          subtitle={
-            <span>
-              Build and Ship a SaaS faster than ever before with the next-gen
-              SaaS Starter Kit. Ship your SaaS in days, not months.
-            </span>
-          }
-          cta={<MainCallToActionButton />}
-          image={
-            <Image
-              priority
-              className={
-                'dark:border-primary/10 rounded-2xl border border-gray-200'
-              }
-              width={3558}
-              height={2222}
-              src={`/images/dashboard.webp`}
-              alt={`App Image`}
-            />
-          }
+interface HomePageProps {
+  searchParams: Promise<{ page?: string }>;
+}
+
+async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+  const currentPage = parseInt(params.page || '1', 10) || 1;
+
+  try {
+    // Fetch blog posts
+    const postsCollection = await getBlogPostsServer({
+      page: currentPage,
+      pageSize: 5,
+    });
+
+    // Extract posts from edges
+    const posts = postsCollection.edges.map((edge) => edge.node);
+
+    // Enrich posts with author information
+    const postsWithAuthors = await enrichBlogPostsWithAuthors(posts);
+
+    return (
+      <div className="flex flex-col space-y-8">
+        <SitePageHeader
+          title="Blog"
+          subtitle="Latest posts and updates"
         />
-      </div>
 
-      <div className={'container mx-auto'}>
-        <div
-          className={'flex flex-col space-y-16 xl:space-y-32 2xl:space-y-36'}
-        >
-          <FeatureShowcase
-            heading={
-              <>
-                <b className="font-semibold dark:text-white">
-                  The ultimate SaaS Starter Kit
-                </b>
-                .{' '}
-                <span className="text-muted-foreground font-normal">
-                  Unleash your creativity and build your SaaS faster than ever
-                  with Makerkit.
-                </span>
-              </>
-            }
-            icon={
-              <FeatureShowcaseIconContainer>
-                <LayoutDashboard className="h-5" />
-                <span>All-in-one solution</span>
-              </FeatureShowcaseIconContainer>
-            }
-          >
-            <FeatureGrid>
-              <FeatureCard
-                className={'relative col-span-2 overflow-hidden'}
-                label={'Beautiful Dashboard'}
-                description={`Makerkit provides a beautiful dashboard to manage your SaaS business.`}
-              />
-
-              <FeatureCard
-                className={
-                  'relative col-span-2 w-full overflow-hidden lg:col-span-1'
-                }
-                label={'Authentication'}
-                description={`Makerkit provides a variety of providers to allow your users to sign in.`}
-              />
-
-              <FeatureCard
-                className={'relative col-span-2 overflow-hidden lg:col-span-1'}
-                label={'Multi Tenancy'}
-                description={`Multi tenant memberships for your SaaS business.`}
-              />
-
-              <FeatureCard
-                className={'relative col-span-2 overflow-hidden'}
-                label={'Billing'}
-                description={`Makerkit supports multiple payment gateways to charge your customers.`}
-              />
-            </FeatureGrid>
-          </FeatureShowcase>
+        <div className="container pb-16">
+          <Suspense fallback={<BlogPostsLoadingSkeleton />}>
+            <BlogPostsList
+              posts={postsWithAuthors}
+              currentPage={currentPage}
+              hasNextPage={postsCollection.pageInfo?.hasNextPage ?? false}
+              hasPreviousPage={postsCollection.pageInfo?.hasPreviousPage ?? false}
+            />
+          </Suspense>
         </div>
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    // Error is already handled in getBlogPostsServer, but we can add additional handling here
+    console.error('Error in HomePage:', error);
+    
+    // Return page with empty state (getBlogPostsServer returns empty array on error)
+    return (
+      <div className="flex flex-col space-y-8">
+        <SitePageHeader
+          title="Blog"
+          subtitle="Latest posts and updates"
+        />
+
+        <div className="container pb-16">
+          <BlogPostsList
+            posts={[]}
+            currentPage={currentPage}
+            hasNextPage={false}
+            hasPreviousPage={false}
+          />
+        </div>
+      </div>
+    );
+  }
 }
 
-export default withI18n(Home);
-
-function MainCallToActionButton() {
+function BlogPostsLoadingSkeleton() {
   return (
-    <div className={'flex space-x-4'}>
-      <CtaButton>
-        <Link href={'/auth/sign-up'}>
-          <span className={'flex items-center space-x-0.5'}>
-            <span>
-              <Trans i18nKey={'common:getStarted'} />
-            </span>
-
-            <ArrowRightIcon
-              className={
-                'animate-in fade-in slide-in-from-left-8 h-4' +
-                ' zoom-in fill-mode-both delay-1000 duration-1000'
-              }
-            />
-          </span>
-        </Link>
-      </CtaButton>
-
-      <CtaButton variant={'link'}>
-        <Link href={'/contact'}>
-          <Trans i18nKey={'common:contactUs'} />
-        </Link>
-      </CtaButton>
+    <div className="space-y-8">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div
+          key={i}
+          className="h-48 animate-pulse rounded-xl border bg-muted"
+        />
+      ))}
     </div>
   );
 }
+
+export default withI18n(HomePage);
+
+// ISR: Revalidate every 60 seconds (bonus feature)
+// This will regenerate the homepage with fresh blog posts every 60 seconds
+export const revalidate = 60;

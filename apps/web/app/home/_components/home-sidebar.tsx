@@ -15,7 +15,7 @@ import { Tables } from '~/lib/database.types';
 
 export function HomeSidebar(props: {
   account?: Tables<'accounts'>;
-  user: JwtPayload;
+  user: JwtPayload | null;
 }) {
   return (
     <Sidebar collapsible={'icon'}>

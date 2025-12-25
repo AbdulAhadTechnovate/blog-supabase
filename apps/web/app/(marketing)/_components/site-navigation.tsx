@@ -37,6 +37,10 @@ const links: Record<
     path: string;
   }
 > = {
+  Blog: {
+    label: 'marketing:blog',
+    path: '/home',
+  },
   /*
     FAQ: {
       label: 'marketing:faq',

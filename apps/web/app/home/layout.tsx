@@ -1,6 +1,6 @@
 import { use } from 'react';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 import {
   Page,
@@ -14,14 +14,15 @@ import { AppLogo } from '~/components/app-logo';
 import { navigationConfig } from '~/config/navigation.config';
 import { withI18n } from '~/lib/i18n/with-i18n';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
+import { getSupabaseServerClient } from '@kit/supabase/server-client';
 
 // home imports
 import { HomeMenuNavigation } from './_components/home-menu-navigation';
 import { HomeMobileNavigation } from './_components/home-mobile-navigation';
 import { HomeSidebar } from './_components/home-sidebar';
 
-function HomeLayout({ children }: React.PropsWithChildren) {
-  const style = use(getLayoutStyle());
+async function HomeLayout({ children }: React.PropsWithChildren) {
+  const style = await getLayoutStyle();
 
   if (style === 'sidebar') {
     return <SidebarLayout>{children}</SidebarLayout>;
@@ -32,9 +33,23 @@ function HomeLayout({ children }: React.PropsWithChildren) {
 
 export default withI18n(HomeLayout);
 
-function SidebarLayout({ children }: React.PropsWithChildren) {
+async function SidebarLayout({ children }: React.PropsWithChildren) {
   const sidebarMinimized = navigationConfig.sidebarCollapsed;
-  const [user] = use(Promise.all([requireUserInServerComponent()]));
+  
+  // Always try to get user, but don't require it
+  // Middleware handles protection for routes that need it
+  let user: Awaited<ReturnType<typeof requireUserInServerComponent>> | null = null;
+  
+  try {
+    const supabase = getSupabaseServerClient();
+    const { data } = await supabase.auth.getClaims();
+    if (data?.claims) {
+      user = { ...data.claims, id: data.claims.sub } as Awaited<ReturnType<typeof requireUserInServerComponent>>;
+    }
+  } catch {
+    // If auth fails, continue without user (public route)
+    user = null;
+  }
 
   return (
     <SidebarProvider defaultOpen={sidebarMinimized}>
